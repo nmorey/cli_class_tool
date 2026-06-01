@@ -55,6 +55,7 @@ class CLIClassToolTest < Minitest::Test
     MockApp.verbose_log = false
     MockApp::TestAction.opts_configured = false
     MockApp::TestAction.opts_checked = false
+    String.class_variable_set(:@@is_a_tty, false)
   end
 
   # Test String colorization extensions

@@ -28,6 +28,4 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'rake', '>= 12.0'
   s.add_development_dependency 'minitest', '>= 5.0'
   s.add_development_dependency 'yard', '>= 0.8'
-  s.add_development_dependency 'redcarpet', '>= 3.0'
-  s.add_development_dependency 'rdoc', '>= 6.0'
 end
