@@ -146,12 +146,12 @@ module CLIClassTool
         def loadAddons(path)
             return unless Dir.exist?(path)
 
-            $LOAD_PATH.push(path)
-            Dir.entries(path).each() do |entry|
-                next if !File.file?(File.join(path, entry)) || entry !~ /\.rb$/
-                require entry.sub(/\.rb$/, "")
+            absolute_dir = File.expand_path(path)
+            Dir.entries(absolute_dir).each() do |entry|
+                absolute_file = File.join(absolute_dir, entry)
+                next if !File.file?(absolute_file) || entry !~ /\.rb$/
+                require absolute_file
             end
-            $LOAD_PATH.pop()
         end
 
         # Safely load an overridden/extended class instance using a generic addon_key

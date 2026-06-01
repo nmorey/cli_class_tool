@@ -195,4 +195,24 @@ class CLIClassToolTest < Minitest::Test
       MockApp.run_cli({}, ["hello"])
     end
   end
+
+  def test_load_addons_conflict
+    require 'tmpdir'
+    Dir.mktmpdir do |dir|
+      # Create a custom unique addon file
+      addon_file1 = File.join(dir, "custom_addon_abc.rb")
+      File.write(addon_file1, "module MockApp; ADDON_ABC_LOADED = true; end")
+
+      # Create an addon file with a name that is already required, like test_helper.rb
+      addon_file2 = File.join(dir, "test_helper.rb")
+      File.write(addon_file2, "module MockApp; CONFLICT_ADDON_LOADED = true; end")
+
+      # Execute loadAddons
+      MockApp.loadAddons(dir)
+
+      # Verify that both files were loaded successfully and set their respective constants
+      assert defined?(MockApp::ADDON_ABC_LOADED), "Unique addon file should have been loaded"
+      assert defined?(MockApp::CONFLICT_ADDON_LOADED), "Conflicting name addon file should have been loaded"
+    end
+  end
 end
