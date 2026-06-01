@@ -21,6 +21,7 @@ Gem::Specification.new do |s|
 
   s.files       = [
     "LICENSE",
+    "CHANGELOG",
     "README.md"
   ] + Dir['lib/**/*.rb'].keep_if { |file| File.file?(file) }
 
