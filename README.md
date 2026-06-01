@@ -64,9 +64,6 @@ end
 In your library entrypoint (e.g. `lib/my-project.rb`), require the `cli_class_tool` components, set up your project-specific namespace, and extend `CLIClassTool::Utils`:
 
 ```ruby
-# Add lib to load path if necessary
-$LOAD_PATH.push(File.dirname(__FILE__))
-
 require 'cli_class_tool'
 
 module MyProject
