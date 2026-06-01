@@ -13,8 +13,8 @@ Gem::Specification.new do |s|
 
   s.summary     = "A lightweight object-oriented framework for class-based command-line interface (CLI) applications."
   s.description = "CLIClassTool decouples the generic execution, logging, and action routing engine from project-specific business logic."
-  s.authors     = ["Nicolas Morey-Chaisemartin"]
-  s.email       = 'nmoreychaisemartin@suse.de'
+  s.authors     = ["Nicolas Morey"]
+  s.email       = 'nmorey@suse.com'
   s.homepage    = 'https://github.com/nmorey/cli_class_tool'
   s.license     = 'GPL-3.0-or-later'
   s.required_ruby_version = '>= 2.7'
