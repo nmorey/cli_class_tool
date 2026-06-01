@@ -1,0 +1,9 @@
+--title "CLIClassTool Documentation"
+--output-dir doc
+--markup markdown
+--readme README.md
+--protected
+--private
+lib/**/*.rb
+-
+README.md
