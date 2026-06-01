@@ -2,6 +2,21 @@ module CLIClassTool
     # Generic utilities for CLI class-based actions
     module Utils
 
+        # Hook called when a module extends CLIClassTool::Utils
+        def self.extended(base)
+            possible_name = base.name ? "#{base.name}Error" : nil
+
+            superclass = if possible_name && Object.const_defined?(possible_name)
+                Object.const_get(possible_name)
+            elsif base.const_defined?(:Error)
+                base.const_get(:Error)
+            else
+                CLIClassTool::RunError
+            end
+
+            CLIClassTool.define_run_error(base, superclass)
+        end
+
         # Convert a string to an action symbol, validating it against available actions
         #
         # @param str [String] Action name
@@ -186,7 +201,6 @@ module CLIClassTool
         def run_cli(opts = {}, argv = ARGV)
             # Fetch actions and action helps
             action_helps = self.getActionAttr("ACTION_HELP")
-            action_list = self.getActionAttr("ACTION_LIST")
 
             # 1. Action Parser Setup
             action_parser = OptionParser.new(nil, 60)

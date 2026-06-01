@@ -3,6 +3,16 @@ module CLIClassTool
 
     # Common utility class providing logging, configuration, and shell execution methods
     class Common
+        # Hook to enforce namespace loading at load time
+        def self.inherited(subclass)
+            if subclass.name
+                parts = subclass.name.to_s.split('::')
+                if parts.size <= 1
+                    raise "CLIClassTool action classes must be defined within a named module/class namespace"
+                end
+            end
+        end
+
         # List of available actions for this class
         ACTION_LIST = [ :list_actions ]
         # Help text for actions
@@ -12,8 +22,15 @@ module CLIClassTool
         # Get the parent module of this class (e.g. KernelWork or XXX)
         def parent_module
             @parent_module ||= begin
-                parts = self.class.name.split('::')
-                parts.size > 1 ? Object.const_get(parts[0...-1].join('::')) : Object
+                if self.class.name.nil?
+                    Object
+                else
+                    parts = self.class.name.split('::')
+                    if parts.size <= 1
+                        raise "CLIClassTool action classes must be defined within a named module/class namespace"
+                    end
+                    Object.const_get(parts[0...-1].join('::'))
+                end
             end
         end
 
@@ -40,8 +57,10 @@ module CLIClassTool
         # @raise [StandardError] If command failed
         def abort_if_err(check_err, sysret, ret = nil)
             if sysret.exitstatus != 0 && check_err == true
-                run_error_class = parent_module.const_defined?(:RunError) ? parent_module::RunError : RuntimeError
-                raise(run_error_class.new(sysret.exitstatus, ret))
+                unless parent_module.const_defined?(:RunError)
+                    raise "CLIClassTool parent module #{parent_module} must extend CLIClassTool::Utils to define RunError"
+                end
+                raise(parent_module::RunError.new(sysret.exitstatus, ret))
             end
         end
 

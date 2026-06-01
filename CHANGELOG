@@ -1,3 +1,7 @@
+
+* Enforce module/class namespaces for all action classes (potentially breaking change)
+* Support automatic project-specific `RunError` generation with customized base error inheritance
+
 ------------------
 0.2.1  (2026-06-01)
 ------------------

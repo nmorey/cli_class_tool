@@ -112,6 +112,61 @@ exit MyProject.execAction(opts, opts[:action])
 
 ---
 
+## Namespace Requirement & Error Handling
+
+### 1. Module Namespace Requirement
+
+To ensure clean encapsulation and safe error resolution, all action classes and standard subclasses inheriting from `CLIClassTool::Common` **must** be defined within a named module/class namespace (such as `MyProject`):
+
+```ruby
+# Correct: Action class is scoped under MyProject namespace
+module MyProject
+  class Suse < CLIClassTool::Common
+    # ...
+  end
+end
+
+# Incorrect: Defining action classes directly in the global namespace is forbidden
+# and will raise an error at load-time:
+class Suse < CLIClassTool::Common; end
+# => "CLIClassTool action classes must be defined within a named module/class namespace"
+```
+
+### 2. Automated `RunError` Generation & Customized Inheritance
+
+When your project's parent module extends `CLIClassTool::Utils`, `CLIClassTool` automatically generates a nested `RunError` class (i.e. `MyProject::RunError`) specifically for your project on load.
+
+By default, this generated error inherits from `CLIClassTool::RunError`. However, if you have a binary-specific or project-wide base error class defined, `CLIClassTool` will **automatically detect it** and make `RunError` inherit from it instead!
+
+It looks for existing error classes in this order:
+1. `#{base_name}Error` (e.g., `MyProjectError` in the global scope)
+2. `#{base_name}::Error` (e.g., `MyProject::Error` within your namespace)
+3. Falls back to `CLIClassTool::RunError`
+
+#### Why is this useful?
+This allows you to catch all potential CLI errors (including system command failures from `run`, `runGit`, etc.) in a single rescue block at the entry point of your binary:
+
+```ruby
+# Define your binary-specific error class
+class MyProjectError < StandardError; end
+
+module MyProject
+  extend CLIClassTool::Utils
+  # CLIClassTool automatically defines MyProject::RunError inheriting from MyProjectError!
+end
+
+# In your executable (bin/mytool)
+begin
+  MyProject.run_cli
+rescue MyProjectError => e
+  # This cleanly catches MyProject::RunError, as well as any other custom MyProjectError!
+  STDERR.puts "# ERROR: #{e.message}"
+  exit e.respond_to?(:err_code) ? e.err_code : 1
+end
+```
+
+---
+
 ## Logging Levels
 By inheriting from `CLIClassTool::Common`, your action classes have access to a rich `log` helper supporting several standard output and color levels:
 
