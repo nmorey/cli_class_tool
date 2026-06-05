@@ -138,7 +138,14 @@ module CLIClassTool
         # @param cmd_type [String] Type of command (e.g., 'git')
         # @param cmd [String] The command string
         def cmd_debug(cmd_type, cmd)
-            log(:DEBUG, "Called from #{caller[1]}")
+            log(:DEBUG, "Called from:")
+            depth=1
+            if ENV["DEBUG_CALL_DEPTH"].to_s() != ""
+                depth = ENV["DEBUG_CALL_DEPTH"].to_i()
+            end
+            [ depth, caller.length].min.downto(1){|x|
+                log(:DEBUG, " #{caller[x]}")
+            }
             log(:DEBUG, "Running #{cmd_type} command '#{cmd}'")
         end
 
