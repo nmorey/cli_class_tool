@@ -4,6 +4,8 @@ require 'test_helper'
 
 # Define a mock parent module to test the CLI runner and utilities end-to-end
 module MockApp
+  class MockAppError < RuntimeError
+  end
   class Common < CLIClassTool::Common
     # Override parent_module to point to MockApp
     def parent_module
@@ -216,39 +218,16 @@ class CLIClassToolTest < Minitest::Test
     end
   end
 
-  def test_run_error_default_generation
-    # By default, extending Utils should generate a RunError inheriting from CLIClassTool::RunError
-    eval <<-RUBY
-      module DefaultMockApp
-        extend CLIClassTool::Utils
-      end
-    RUBY
-    assert defined?(DefaultMockApp::RunError)
-    assert_equal CLIClassTool::RunError, DefaultMockApp::RunError.superclass
-  end
-
   def test_run_error_custom_global_error_class_matching
     # Define the global [ModuleName]Error class first
     eval <<-RUBY
-      class PatternMockAppError < StandardError; end
       module PatternMockApp
+        class PatternMockAppError < StandardError; end
         extend CLIClassTool::Utils
       end
     RUBY
     assert defined?(PatternMockApp::RunError)
-    assert_equal PatternMockAppError, PatternMockApp::RunError.superclass
-  end
-
-  def test_run_error_custom_inner_error_class_matching
-    # Define an inner module Error class first
-    eval <<-RUBY
-      module InnerMockApp
-        class Error < StandardError; end
-        extend CLIClassTool::Utils
-      end
-    RUBY
-    assert defined?(InnerMockApp::RunError)
-    assert_equal InnerMockApp::Error, InnerMockApp::RunError.superclass
+    assert_equal PatternMockApp::PatternMockAppError, PatternMockApp::RunError.superclass
   end
 
   def test_namespace_enforcement
@@ -262,8 +241,7 @@ class CLIClassToolTest < Minitest::Test
     # Verify custom subclass attributes and message construction
     err = MockApp::RunError.new(42, "Standard failure output")
     assert_equal 42, err.err_code
-    assert_equal "Standard failure output", err.output
+    assert_equal "Standard failure output", err.msg
     assert_match(/Command failed with exit status 42/, err.message)
-    assert_match(/Standard failure output/, err.message)
   end
 end

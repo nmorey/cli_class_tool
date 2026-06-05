@@ -4,17 +4,16 @@ module CLIClassTool
 
         # Hook called when a module extends CLIClassTool::Utils
         def self.extended(base)
-            possible_name = base.name ? "#{base.name}Error" : nil
+            return if base == nil
 
-            superclass = if possible_name && Object.const_defined?(possible_name)
-                Object.const_get(possible_name)
-            elsif base.const_defined?(:Error)
-                base.const_get(:Error)
-            else
-                CLIClassTool::RunError
+            lower_mod = base.name.split('::')[-1]
+            superclass_name = "#{base.name}::#{lower_mod}Error"
+
+            if ! Object.const_defined?(superclass_name)
+                raise("Could not find a base error class named #{superclass_name}")
             end
 
-            CLIClassTool.define_run_error(base, superclass)
+            CLIClassTool.define_run_error(base, Object.const_get(superclass_name))
         end
 
         # Convert a string to an action symbol, validating it against available actions
