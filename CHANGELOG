@@ -1,3 +1,7 @@
+------------------
+0.4.1  (2026-06-05)
+------------------
+
 * Fix definition on RunError
 * In DEBUG=1 mode, run() call stack depth can be tuned with DEBUG_CALL_STACK=<n>
 
