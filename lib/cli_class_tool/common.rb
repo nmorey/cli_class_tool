@@ -1,39 +1,9 @@
 # Main module for generic CLI class-based tools and utilities
 module CLIClassTool
 
-    # Common utility class providing logging, configuration, and shell execution methods
-    class Common
-        # Hook to enforce namespace loading at load time
-        def self.inherited(subclass)
-            if subclass.name
-                parts = subclass.name.to_s.split('::')
-                if parts.size <= 1
-                    raise "CLIClassTool action classes must be defined within a named module/class namespace"
-                end
-            end
-        end
-
-        # List of available actions for this class
-        ACTION_LIST = [ :list_actions ]
-        # Help text for actions
-        ACTION_HELP = {}
-
+    # Logger for CLIClassTool::Common
+    module Logger
         private
-        # Get the parent module of this class (e.g. KernelWork or XXX)
-        def parent_module
-            @parent_module ||= begin
-                if self.class.name.nil?
-                    Object
-                else
-                    parts = self.class.name.split('::')
-                    if parts.size <= 1
-                        raise "CLIClassTool action classes must be defined within a named module/class namespace"
-                    end
-                    Object.const_get(parts[0...-1].join('::'))
-                end
-            end
-        end
-
         # Internal log method
         # @param lvl [String] Log level string (colored)
         # @param str [String] Message
@@ -50,28 +20,7 @@ module CLIClassTool
             out.print("# " + lvl.to_s() + ": " + str + "\r")
         end
 
-        # Raise error if system command failed
-        # @param check_err [Boolean] Whether to check for errors
-        # @param sysret [Process::Status] System return status
-        # @param ret [String, nil] Optional return message
-        # @raise [StandardError] If command failed
-        def abort_if_err(check_err, sysret, ret = nil)
-            if sysret.exitstatus != 0 && check_err == true
-                unless parent_module.const_defined?(:RunError)
-                    raise "CLIClassTool parent module #{parent_module} must extend CLIClassTool::Utils to define RunError"
-                end
-                raise(parent_module::RunError.new(sysret.exitstatus, ret))
-            end
-        end
-
-        # Debug command execution
-        # @param cmd_type [String] Type of command (e.g., 'git')
-        # @param cmd [String] The command string
-        def cmd_debug(cmd_type, cmd)
-            log(:DEBUG, "Called from #{caller[1]}")
-            log(:DEBUG, "Running #{cmd_type} command '#{cmd}'")
-        end
-        protected
+        public
         # Log a message with a specific level
         #
         # @param lvl [Symbol] Log level (:DEBUG, :INFO, :WARNING, :ERROR, etc.)
@@ -121,6 +70,67 @@ module CLIClassTool
             end
             return rep
         end
+    end
+
+    # Common utility class providing logging, configuration, and shell execution methods
+    class Common
+        # Hook to enforce namespace loading at load time
+        def self.inherited(subclass)
+            if subclass.name
+                parts = subclass.name.to_s.split('::')
+                if parts.size <= 1
+                    raise "CLIClassTool action classes must be defined within a named module/class namespace"
+                end
+            end
+        end
+
+        # List of available actions for this class
+        ACTION_LIST = [ :list_actions ]
+        # Help text for actions
+        ACTION_HELP = {}
+
+        # Give the Logger mathods to Common
+        include CLIClassTool::Logger
+
+        private
+
+        # Get the parent module of this class (e.g. KernelWork or XXX)
+        def parent_module
+            @parent_module ||= begin
+                if self.class.name.nil?
+                    Object
+                else
+                    parts = self.class.name.split('::')
+                    if parts.size <= 1
+                        raise "CLIClassTool action classes must be defined within a named module/class namespace"
+                    end
+                    Object.const_get(parts[0...-1].join('::'))
+                end
+            end
+        end
+
+        # Raise error if system command failed
+        # @param check_err [Boolean] Whether to check for errors
+        # @param sysret [Process::Status] System return status
+        # @param ret [String, nil] Optional return message
+        # @raise [StandardError] If command failed
+        def abort_if_err(check_err, sysret, ret = nil)
+            if sysret.exitstatus != 0 && check_err == true
+                unless parent_module.const_defined?(:RunError)
+                    raise "CLIClassTool parent module #{parent_module} must extend CLIClassTool::Utils to define RunError"
+                end
+                raise(parent_module::RunError.new(sysret.exitstatus, ret))
+            end
+        end
+
+        # Debug command execution
+        # @param cmd_type [String] Type of command (e.g., 'git')
+        # @param cmd [String] The command string
+        def cmd_debug(cmd_type, cmd)
+            log(:DEBUG, "Called from #{caller[1]}")
+            log(:DEBUG, "Running #{cmd_type} command '#{cmd}'")
+        end
+
 
         public
         # Simple initializer for a Common object

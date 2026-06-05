@@ -1,5 +1,6 @@
 * Add basic initializer for Common
 * Add Common::run() that will auto spawn a Common object and run the command with it.
+* log function can now be used in alternate object or class by including/extending CLIClassTool::Logger
 
 ------------------
 0.3.0  (2026-06-02)
