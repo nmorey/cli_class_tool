@@ -145,8 +145,9 @@ module CLIClassTool
         # Simple initializer for a Common object
         #
         # @param path [String] Path to run commands from
-        def initialize(path=".")
+        def initialize(path=".", caller_obj=self)
             @path = path
+            @parent_module = obj_to_parent_mod(caller_obj)
         end
 
         # Run a shell command
