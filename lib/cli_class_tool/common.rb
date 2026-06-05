@@ -123,6 +123,13 @@ module CLIClassTool
         end
 
         public
+        # Simple initializer for a Common object
+        #
+        # @param path [String] Path to run commands from
+        def initialize(path=".")
+            @path = path
+        end
+
         # Run a shell command
         #
         # @param cmd [String] Command to run
@@ -136,6 +143,10 @@ module CLIClassTool
             return ret
         end
 
+        def self.run(path, cmd, check_err = true)
+            obj = Common.new(path)
+            return obj.run(cmd, check_err)
+        end
         # Run a shell command using system() (interactive)
         #
         # @param cmd [String] Command to run
