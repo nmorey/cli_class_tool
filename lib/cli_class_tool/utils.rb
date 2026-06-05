@@ -116,14 +116,10 @@ module CLIClassTool
 
             self._runOnClass(action, nil) {|kClass|
                 begin
-                    # Some class have their own execAction, because object creation might be tricky.
-                    if kClass.respond_to?(:execAction)
-                        ret = kClass.execAction(opts, action)
-                    else
-                        # Use load factory method if defined, else fall back to .new
-                        obj = kClass.respond_to?(:load) ? kClass.load() : kClass.new()
-                        ret = obj.public_send(action, opts)
-                    end
+                    # Use load factory method if defined, else fall back to .new
+                    obj = kClass.respond_to?(:load) ? kClass.load() : kClass.new()
+                    ret = obj.public_send(action, opts)
+
                     return ret.is_a?(Integer) ? ret : 0
                 rescue caught_error_class => e
                     puts("# " + "ERROR".red().to_s() + ": Action '#{action}' failed: #{e.message}")
