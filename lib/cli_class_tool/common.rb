@@ -25,7 +25,8 @@ module CLIClassTool
         # @param obj [Object,Class] Object or class to get the Module from
         # @raise [StandardError] If command failed
         def obj_to_parent_mod(obj)
-            return obj if obj.is_a?(Module)
+            return obj if obj.class == Module
+
             theClass = obj.is_a?(Class) ? obj : obj.class
             if theClass.name.nil?
                 return Object
