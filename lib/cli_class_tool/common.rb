@@ -164,7 +164,7 @@ module CLIClassTool
         end
 
         def self.run(path, cmd, check_err = true)
-            obj = Common.new(path)
+            obj = Common.new(path, self)
             return obj.run(cmd, check_err)
         end
         # Run a shell command using system() (interactive)
