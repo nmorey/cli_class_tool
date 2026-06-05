@@ -20,6 +20,32 @@ module CLIClassTool
             out.print("# " + lvl.to_s() + ": " + str + "\r")
         end
 
+        # Compute the parent module of an object or a class
+        #
+        # @param obj [Object,Class] Object or class to get the Module from
+        # @raise [StandardError] If command failed
+        def obj_to_parent_mod(obj)
+            return obj if obj.is_a?(Module)
+            theClass = obj.is_a?(Class) ? obj : obj.class
+            if theClass.name.nil?
+                return Object
+            else
+                parts = theClass.name.split('::')
+                if parts.size <= 1
+                    raise "CLIClassTool action classes must be defined within a named module/class namespace"
+                end
+                return Object.const_get(parts[0...-1].join('::'))
+            end
+        end
+
+        # Get the parent module of this class (e.g. KernelWork or XXX)
+        def parent_module
+            return @parent_module if @parent_module != nil
+
+            @parent_module = obj_to_parent_mod(self)
+            return @parent_module
+        end
+
         public
         # Log a message with a specific level
         #
@@ -93,31 +119,6 @@ module CLIClassTool
         include CLIClassTool::Logger
 
         private
-        # Compute the parent module of an object or a class
-        #
-        # @param obj [Object,Class] Object or class to get the Module from
-        # @raise [StandardError] If command failed
-       def obj_to_parent_mod(obj)
-            theClass = obj.is_a?(Class) ? obj : obj.class
-            if theClass.name.nil?
-                return Object
-            else
-                parts = theClass.name.split('::')
-                if parts.size <= 1
-                    raise "CLIClassTool action classes must be defined within a named module/class namespace"
-                end
-                return Object.const_get(parts[0...-1].join('::'))
-            end
-        end
-
-        # Get the parent module of this class (e.g. KernelWork or XXX)
-        def parent_module
-            return @parent_module if @parent_module != nil
-
-            @parent_module = obj_to_parent_mod(self)
-            return @parent_module
-        end
-
         # Raise error if system command failed
         # @param check_err [Boolean] Whether to check for errors
         # @param sysret [Process::Status] System return status
