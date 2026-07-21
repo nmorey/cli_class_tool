@@ -1,3 +1,5 @@
+* Add recursive nested subcommand and namespace auto-discovery support
+
 ------------------
 0.4.1  (2026-06-05)
 ------------------

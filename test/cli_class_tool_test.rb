@@ -52,6 +52,92 @@ module MockApp
   extend CLIClassTool::Utils
 end
 
+module NestedApp
+  class NestedAppError < StandardError; end
+
+  class Common < CLIClassTool::Common
+    def parent_module
+      NestedApp
+    end
+    public :log
+  end
+
+  # Subcommand at Level 1 (automatic name "sub_one")
+  module SubOne
+    class SubOneError < StandardError; end
+    class Common < CLIClassTool::Common
+      def parent_module; SubOne; end
+      public :log
+    end
+
+    class SubOneAction < Common
+      ACTION_LIST = [ :run_one ]
+      ACTION_HELP = { :run_one => "Run action of SubOne" }
+
+      class << self
+        def set_opts(action, parser, opts)
+          parser.on("--foo FOO", "Foo option") { |v| opts[:foo] = v }
+        end
+        def check_opts(opts); end
+      end
+
+      def run_one(opts)
+        log(:INFO, "SubOne executed with foo=#{opts[:foo]}")
+        return 0
+      end
+    end
+
+    ACTION_CLASS = [ SubOneAction ]
+    extend CLIClassTool::Utils
+  end
+
+  # Subcommand with Custom name at Level 1 (using CLI_COMMAND_NAME)
+  module SubTwoCustom
+    CLI_COMMAND_NAME = "custom_sub"
+    CLI_DESCRIPTION = "Custom Subcommand Help"
+
+    class SubTwoCustomError < StandardError; end
+    class Common < CLIClassTool::Common
+      def parent_module; SubTwoCustom; end
+    end
+
+    # Level 2 deep nested subcommand within SubTwoCustom
+    module DeepLevelTwo
+      CLI_DESCRIPTION = "Deep Level Two CLI description"
+
+      class DeepLevelTwoError < StandardError; end
+      class Common < CLIClassTool::Common
+        def parent_module; DeepLevelTwo; end
+        public :log
+      end
+
+      class DeepAction < Common
+        ACTION_LIST = [ :run_deep ]
+        ACTION_HELP = { :run_deep => "Execute deepest level action" }
+
+        class << self
+          def set_opts(action, parser, opts)
+            parser.on("--deep-val VALUE", "Deep option value") { |v| opts[:deep_val] = v }
+          end
+          def check_opts(opts); end
+        end
+
+        def run_deep(opts)
+          log(:INFO, "DeepAction executed with deep_val=#{opts[:deep_val]}")
+          return 42
+        end
+      end
+
+      ACTION_CLASS = [ DeepAction ]
+      extend CLIClassTool::Utils
+    end
+
+    extend CLIClassTool::Utils
+  end
+
+  extend CLIClassTool::Utils
+end
+
 class CLIClassToolTest < Minitest::Test
   def setup
     MockApp.verbose_log = false
@@ -243,5 +329,136 @@ class CLIClassToolTest < Minitest::Test
     assert_equal 42, err.err_code
     assert_equal "Standard failure output", err.msg
     assert_match(/Command failed with exit status 42/, err.message)
+  end
+
+  def test_nested_subcommand_discovery
+    # Check that NestedApp dynamically discovered the two nested modules as sub-actions
+    sub_actions = NestedApp.cli_sub_actions
+    assert_equal 2, sub_actions.keys.size
+    assert_equal NestedApp::SubOne, sub_actions["sub_one"]
+    assert_equal NestedApp::SubTwoCustom, sub_actions["custom_sub"]
+
+    # Check level 2 deep discovery
+    sub_actions_l2 = NestedApp::SubTwoCustom.cli_sub_actions
+    assert_equal 1, sub_actions_l2.keys.size
+    assert_equal NestedApp::SubTwoCustom::DeepLevelTwo, sub_actions_l2["deep_level_two"]
+  end
+
+  def test_nested_subcommand_help_aggregation
+    action_list = NestedApp.getActionAttr("ACTION_LIST")
+    assert_includes action_list, :sub_one
+    assert_includes action_list, :custom_sub
+
+    action_help = NestedApp.getActionAttr("ACTION_HELP")
+    assert_equal "", action_help[:sub_one] # SubOne has no CLI_DESCRIPTION/HELP constant
+    assert_equal "Custom Subcommand Help", action_help[:custom_sub] # SubTwoCustom has CLI_DESCRIPTION
+  end
+
+  def test_nested_subcommand_execution_success
+    exit_status = nil
+    out, _ = capture_io do
+      begin
+        NestedApp.run_cli({}, ["sub_one", "run_one", "--foo", "hello_nested"])
+      rescue SystemExit => e
+        exit_status = e.status
+      end
+    end
+
+    assert_equal 0, exit_status
+    assert_match(/# INFO: SubOne executed with foo=hello_nested/, out)
+  end
+
+  def test_nested_subcommand_deep_execution_success
+    exit_status = nil
+    out, _ = capture_io do
+      begin
+        NestedApp.run_cli({}, ["custom_sub", "deep_level_two", "run_deep", "--deep-val", "ultra"])
+      rescue SystemExit => e
+        exit_status = e.status
+      end
+    end
+
+    assert_equal 42, exit_status
+    assert_match(/# INFO: DeepAction executed with deep_val=ultra/, out)
+  end
+
+  def test_nested_subcommand_help_flag
+    exit_status = nil
+    out, _ = capture_io do
+      begin
+        # Ask help from the level 2 subcommand deep_level_two
+        NestedApp.run_cli({}, ["custom_sub", "deep_level_two", "-h"])
+      rescue SystemExit => e
+        exit_status = e.status
+      end
+    end
+
+    assert_equal 0, exit_status
+    assert_match(/Possible actions:/, out)
+    assert_match(/\* run_deep\s+Execute deepest level action/, out)
+  end
+
+  def test_nested_subcommand_exception_matching_level_1
+    # Create an exception from the level 1 subcommand
+    err = NestedApp::SubOne::RunError.new(10, "SubOne failure")
+
+    rescued = false
+    begin
+      raise err
+    rescue NestedApp::NestedAppError => e
+      rescued = true
+      assert_equal 10, e.err_code
+    end
+    assert rescued, "Exception was not caught by parent NestedAppError"
+
+    # Verify it can still be caught by its original name
+    rescued_original = false
+    begin
+      raise err
+    rescue NestedApp::SubOne::SubOneError
+      rescued_original = true
+    end
+    assert rescued_original, "Exception was not caught by its original SubOneError"
+
+    rescued_run_error = false
+    begin
+      raise err
+    rescue NestedApp::SubOne::RunError
+      rescued_run_error = true
+    end
+    assert rescued_run_error, "Exception was not caught by its exact RunError class"
+  end
+
+  def test_nested_subcommand_exception_matching_level_2
+    # Create an exception from the level 2 deep subcommand
+    err = NestedApp::SubTwoCustom::DeepLevelTwo::RunError.new(99, "DeepLevel failure")
+
+    rescued_by_grandparent = false
+    begin
+      raise err
+    rescue NestedApp::NestedAppError => e
+      rescued_by_grandparent = true
+      assert_equal 99, e.err_code
+    end
+    assert rescued_by_grandparent, "Exception was not caught by grandparent NestedAppError"
+
+    rescued_by_parent = false
+    begin
+      raise err
+    rescue NestedApp::SubTwoCustom::SubTwoCustomError
+      rescued_by_parent = true
+    end
+    assert rescued_by_parent, "Exception was not caught by direct parent SubTwoCustomError"
+
+    # Verify standard inheritance rejection still works correctly
+    not_rescued = false
+    begin
+      raise err
+    rescue NestedApp::SubOne::SubOneError
+      not_rescued = true
+    rescue NestedApp::NestedAppError
+      # Should fall back here since SubOneError shouldn't match DeepLevelTwo's error
+    end
+    refute not_rescued, "Exception was incorrectly caught by a sibling error class"
   end
 end

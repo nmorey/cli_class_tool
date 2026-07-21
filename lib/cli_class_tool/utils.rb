@@ -13,7 +13,95 @@ module CLIClassTool
                 raise("Could not find a base error class named #{superclass_name}")
             end
 
-            CLIClassTool.define_run_error(base, Object.const_get(superclass_name))
+            error_class = Object.const_get(superclass_name)
+
+            # Override === on the error class to match nested subcommand errors recursively
+            error_class.singleton_class.class_eval do
+                define_method(:_cli_host_module) { base }
+
+                def ===(other)
+                    return true if super
+
+                    if other.is_a?(StandardError) && other.respond_to?(:err_code)
+                        other_class_name = other.class.name
+                        if other_class_name
+                            parts = other_class_name.split('::')
+                            if parts.size > 1
+                                parent_mod_name = parts[0...-1].join('::')
+                                host = _cli_host_module
+                                if host.respond_to?(:cli_sub_actions)
+                                    all_sub_names = _all_sub_module_names(host)
+                                    return all_sub_names.include?(parent_mod_name)
+                                end
+                            end
+                        end
+                    end
+
+                    false
+                end
+
+                define_method(:_all_sub_module_names) do |host_mod|
+                    names = []
+                    if host_mod.respond_to?(:cli_sub_actions)
+                        host_mod.cli_sub_actions.values.each do |sub_cli|
+                            if sub_cli.name
+                                names << sub_cli.name
+                                names.concat(_all_sub_module_names(sub_cli))
+                            end
+                        end
+                    end
+                    names.uniq
+                end
+            end
+
+            CLIClassTool.define_run_error(base, error_class)
+        end
+
+        # Convert CamelCase to snake_case
+        # @param str [String]
+        # @return [String]
+        def _to_snake_case(str)
+            str.gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2')
+               .gsub(/([a-z\d])([A-Z])/, '\1_\2')
+               .tr('-', '_')
+               .downcase
+        end
+
+        # Dynamically discover and return a map of sub-CLI tools
+        #
+        # @return [Hash<String, Module>] Map of subcommand string to CLI modules
+        def cli_sub_actions
+            sub_actions = {}
+
+            # First, check if manual CLI_SUB_ACTIONS mapping exists
+            if self.const_defined?(:CLI_SUB_ACTIONS)
+                manual_actions = self::CLI_SUB_ACTIONS
+                if manual_actions.is_a?(Hash)
+                    manual_actions.each do |k, v|
+                        sub_actions[k.to_s] = v
+                    end
+                end
+            end
+
+            # Then, dynamically discover any inner modules/classes extending CLIClassTool::Utils
+            self.constants(false).each do |const_sym|
+                begin
+                    const_val = self.const_get(const_sym)
+                    if const_val.is_a?(Module) && const_val.is_a?(CLIClassTool::Utils)
+                        cmd_name = if const_val.const_defined?(:CLI_COMMAND_NAME)
+                            const_val::CLI_COMMAND_NAME.to_s
+                        else
+                            _to_snake_case(const_sym.to_s)
+                        end
+                        # Only add if not already manually specified
+                        sub_actions[cmd_name] ||= const_val
+                    end
+                rescue NameError, LoadError
+                    # ignore uninitialized autoloads
+                end
+            end
+
+            return sub_actions
         end
 
         # Convert a string to an action symbol, validating it against available actions
@@ -40,19 +128,51 @@ module CLIClassTool
         # @param attr [Symbol] Attribute name (e.g., "ACTION_LIST")
         # @return [Hash, Array] Aggregated attributes
         def getActionAttr(attr)
-            action_classes = self::ACTION_CLASS
-            common_class = self::Common
+            common_class = self.const_defined?(:Common) ? self::Common : CLIClassTool::Common
+            is_hash = if common_class.const_defined?(attr)
+                common_class.const_get(attr).is_a?(Hash)
+            else
+                attr.to_s.include?("HELP")
+            end
+
+            action_classes = self.const_defined?(:ACTION_CLASS) ? self::ACTION_CLASS : []
 
             # Resolve overridden/extended class (addon) if getExtendedClass is defined
             resolved_classes = action_classes.map do |x|
                 self.respond_to?(:getExtendedClass) ? self.getExtendedClass(x) : x
             end
 
-            if common_class.const_get(attr).class == Hash
-                return resolved_classes.inject({}){|h, x| h.merge(x.const_get(attr))}
+            res = if is_hash
+                resolved_classes.inject({}){|h, x| h.merge(x.const_get(attr))}
             else
-                return resolved_classes.map(){|x| x.const_get(attr)}.flatten()
+                resolved_classes.map(){|x| x.const_get(attr)}.flatten()
             end
+
+            # If it's ACTION_LIST, append discovered subcommand names
+            if attr.to_s == "ACTION_LIST"
+                sub_actions = self.cli_sub_actions
+                res += sub_actions.keys.map(&:to_sym)
+            # If it's ACTION_HELP, merge subcommand helps
+            elsif attr.to_s == "ACTION_HELP"
+                sub_helps = {}
+                self.cli_sub_actions.each do |cmd_name, sub_cli|
+                    desc = ""
+                    if sub_cli.const_defined?(:CLI_DESCRIPTION)
+                        desc = sub_cli::CLI_DESCRIPTION
+                    elsif sub_cli.const_defined?(:HELP)
+                        desc = sub_cli::HELP
+                    end
+                    sub_helps[cmd_name.to_sym] = desc
+                end
+                if self.const_defined?(:CLI_SUB_ACTIONS_HELP)
+                    self::CLI_SUB_ACTIONS_HELP.each do |k, desc|
+                        sub_helps[k.to_sym] = desc
+                    end
+                end
+                res = res.merge(sub_helps)
+            end
+
+            return res
         end
 
         # Run a block on the class responsible for a specific action
@@ -62,6 +182,7 @@ module CLIClassTool
         # @yield [Class] The class handling the action
         # @return [Object] Result of the block or error code
         def _runOnClass(action, sym, &block)
+            return -1 unless self.const_defined?(:ACTION_CLASS)
             self::ACTION_CLASS.each(){|x|
                 next if x::ACTION_LIST.index(action) == nil
 
@@ -193,7 +314,7 @@ module CLIClassTool
         # @param opts [Hash] Initial options hash
         # @param argv [Array<String>] Command line arguments (defaults to ARGV)
         # @yield [parser, phase, action_opts] Custom options setup callback block
-        def run_cli(opts = {}, argv = ARGV)
+        def run_cli(opts = {}, argv = ARGV, &block)
             # Fetch actions and action helps
             action_helps = self.getActionAttr("ACTION_HELP")
 
@@ -215,7 +336,7 @@ module CLIClassTool
             col_width = max_len + 4
             action_helps.each do |k, x|
                 indent = col_width - self.actionToString(k).length
-                action_parser.separator "\t * " + self.actionToString(k) + (" " * indent) + x
+                action_parser.separator "\t * " + self.actionToString(k) + (" " * indent) + x.to_s
             end
 
             # Include any registered custom addon class listings if defined
@@ -234,6 +355,22 @@ module CLIClassTool
             end
 
             action_s = argv[0]
+
+            # Intercept subcommands here!
+            sub_actions = self.cli_sub_actions
+            if sub_actions.key?(action_s)
+                sub_cli = sub_actions[action_s]
+                if sub_cli.respond_to?(:verbose_log=)
+                    sub_cli.verbose_log = self.verbose_log
+                end
+                argv.shift()
+                if block
+                    exit(sub_cli.run_cli(opts, argv, &block))
+                else
+                    exit(sub_cli.run_cli(opts, argv))
+                end
+            end
+
             action = opts[:action] = self.stringToAction(action_s)
             argv.shift()
 

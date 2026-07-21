@@ -294,4 +294,83 @@ MyProject.run_cli(opts) do |parser, phase, action_opts|
   end
 end
 ```
+
+---
+
+## Nested CLI Subcommands (Subcommands & Recursive Routing)
+
+`CLIClassTool` natively supports nested CLI subcommands, enabling hierarchical structures of the form:
+```
+$ mytool <subcommand> <action> [options]
+$ mytool <subcommand> <sub_subcommand> <action> [options]
+```
+
+This allows you to decouple complex tools into self-contained sub-CLI components while executing them seamlessly under a single binary entry point.
+
+### 1. Auto-Discovery & Setup
+
+Any nested module or class defined within your parent CLI module that extends `CLIClassTool::Utils` is **automatically discovered** as a subcommand:
+
+```ruby
+module MyProject
+  extend CLIClassTool::Utils # Parent CLI
+
+  # 1. Nesting a subcommand module
+  module ConfigCLI
+    # Define custom subcommand help description
+    CLI_DESCRIPTION = "Manage application configurations"
+
+    # Optional: Customize the command name (defaults to "config_cli")
+    CLI_COMMAND_NAME = "config"
+
+    class ConfigError < StandardError; end
+
+    class Common < CLIClassTool::Common
+      def parent_module; ConfigCLI; end
+    end
+
+    class ConfigAction < Common
+      ACTION_LIST = [ :set_val ]
+      ACTION_HELP = { :set_val => "Set a config value" }
+
+      def set_val(opts)
+        # business logic...
+        return 0
+      end
+    end
+
+    ACTION_CLASS = [ ConfigAction ]
+    extend CLIClassTool::Utils
+  end
+end
+```
+
+### 2. Help Aggregation & Name Resolution
+
+- **Naming:** By default, subcommand trigger words are derived from the inner module/class name converted to `snake_case` (e.g., `ConfigCLI` becomes `config_cli`). Define `CLI_COMMAND_NAME = "custom_name"` on your submodule to override this behavior.
+- **Help Menus:** Nested subcommands and their descriptions (`CLI_DESCRIPTION` or `HELP` constants) are automatically collected and listed in the parent CLI's usage output under `Possible actions:`.
+- **Option Forwarding:** Global customization blocks and verbosity flags are recursively passed down to the active subcommand.
+
+### 3. Seamless Subcommand Exception Handling
+
+`CLIClassTool` provides dynamic subclass exception matching to solve a common design challenge: *rescuing any exception originating from nested sub-CLIs under a single, central parent rescue block.*
+
+When you extend `CLIClassTool::Utils` on a parent module, `CLIClassTool` overrides the case-equality (`===`) operator on the parent's base error class. This ensures:
+- Any child subcommand exception (such as `MyProject::ConfigCLI::RunError`) is **seamlessly rescued** by the parent base error class.
+- The original exception classes and names remain **completely unchanged**, meaning they can still be rescued by their specific sub-CLI exception class as normal.
+
+This enables infinite sub-CLI nesting while preserving modular reuse across different parent projects or as standalone binaries:
+
+```ruby
+# In bin/mytool
+begin
+  MyProject.run_cli
+rescue MyProjectError => e
+  # Seamlessly catches errors from MyProject::RunError,
+  # MyProject::ConfigCLI::RunError, or any deeper sublevel!
+  STDERR.puts "# ERROR: #{e.message}"
+  exit e.respond_to?(:err_code) ? e.err_code : 1
+end
+```
+
 ```
