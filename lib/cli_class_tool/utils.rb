@@ -1,3 +1,5 @@
+require 'optparse'
+
 module CLIClassTool
     # Generic utilities for CLI class-based actions
     module Utils
