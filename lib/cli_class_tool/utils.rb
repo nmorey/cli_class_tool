@@ -143,9 +143,13 @@ module CLIClassTool
             end
 
             res = if is_hash
-                resolved_classes.inject({}){|h, x| h.merge(x.const_get(attr))}
+                resolved_classes.inject({}) do |h, x|
+                    x.const_defined?(attr) ? h.merge(x.const_get(attr)) : h
+                end
             else
-                resolved_classes.map(){|x| x.const_get(attr)}.flatten()
+                resolved_classes.map do |x|
+                    x.const_defined?(attr) ? x.const_get(attr) : []
+                end.flatten()
             end
 
             # If it's ACTION_LIST, append discovered subcommand names

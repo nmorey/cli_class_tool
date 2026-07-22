@@ -461,4 +461,50 @@ class CLIClassToolTest < Minitest::Test
     end
     refute not_rescued, "Exception was incorrectly caught by a sibling error class"
   end
+
+  def test_subcommand_with_no_actions_and_parent_with_actions
+    eval <<-RUBY
+      module LexicalTestApp
+        class LexicalTestAppError < StandardError; end
+        class Common < CLIClassTool::Common
+          def parent_module; LexicalTestApp; end
+        end
+        class TopAction < Common
+          ACTION_LIST = [:top_act]
+          ACTION_HELP = { :top_act => "Top help" }
+        end
+        ACTION_CLASS = [ TopAction ]
+        extend CLIClassTool::Utils
+
+        module NestedNoActions
+          class NestedNoActionsError < StandardError; end
+          extend CLIClassTool::Utils
+        end
+      end
+    RUBY
+
+    list = nil
+    begin
+      list = LexicalTestApp::NestedNoActions.getActionAttr("ACTION_LIST")
+    rescue => e
+      flunk "Should not raise any error, but raised: #{e.class} - #{e.message}"
+    end
+    assert_equal [], list
+  end
+
+  def test_action_class_without_action_help_or_list
+    eval <<-RUBY
+      module EmptyActionApp
+        class EmptyActionAppError < StandardError; end
+        class MiniAction
+          # No ACTION_HELP or ACTION_LIST defined here
+        end
+        ACTION_CLASS = [ MiniAction ]
+        extend CLIClassTool::Utils
+      end
+    RUBY
+
+    assert_equal ({}), EmptyActionApp.getActionAttr("ACTION_HELP")
+    assert_equal [], EmptyActionApp.getActionAttr("ACTION_LIST")
+  end
 end
