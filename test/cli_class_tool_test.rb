@@ -617,4 +617,93 @@ class CLIClassToolTest < Minitest::Test
     assert_match(/\* myalias\s+-> custom_sub deep_level_two run_deep/, out)
     assert_match(/\* string_alias\s+-> sub_one run_one/, out)
   end
+
+  def test_nested_subcommand_aliases_and_shortcuts
+    eval <<-RUBY
+      module NestedAliasApp
+        class NestedAliasAppError < StandardError; end
+
+        class Common < CLIClassTool::Common
+          def parent_module; NestedAliasApp; end
+          public :log
+        end
+
+        module SubClass
+          class SubClassError < StandardError; end
+          class Common < CLIClassTool::Common
+            def parent_module; SubClass; end
+            public :log
+          end
+
+          module SubSubClass
+            class SubSubClassError < StandardError; end
+            class Common < CLIClassTool::Common
+              def parent_module; SubSubClass; end
+              public :log
+            end
+
+            class DeepAction < Common
+              ACTION_LIST = [ :my_action ]
+              ACTION_HELP = { :my_action => "Run deep action" }
+              def my_action(opts)
+                log(:INFO, "my_action executed!")
+                return 77
+              end
+            end
+
+            ACTION_CLASS = [ DeepAction ]
+            extend CLIClassTool::Utils
+          end
+
+          CLI_COMMAND_ALIASES = {
+            :shortcut => "sub_sub_class my_action"
+          }
+
+          extend CLIClassTool::Utils
+        end
+
+        CLI_COMMAND_ALIASES = {
+          :shortcut2 => "sub_class shortcut"
+        }
+
+        extend CLIClassTool::Utils
+      end
+    RUBY
+
+    # 1. Verify direct execution works: 'toplvl subclass subsubclass action'
+    exit_status = nil
+    out, _ = capture_io do
+      begin
+        NestedAliasApp.run_cli({}, ["sub_class", "sub_sub_class", "my_action"])
+      rescue SystemExit => e
+        exit_status = e.status
+      end
+    end
+    assert_equal 77, exit_status
+    assert_match(/# INFO: my_action executed!/, out)
+
+    # 2. Verify alias on subclass works: 'toplvl subclass shortcut'
+    exit_status = nil
+    out, _ = capture_io do
+      begin
+        NestedAliasApp.run_cli({}, ["sub_class", "shortcut"])
+      rescue SystemExit => e
+        exit_status = e.status
+      end
+    end
+    assert_equal 77, exit_status
+    assert_match(/# INFO: my_action executed!/, out)
+
+    # 3. Verify nested alias resolution works: 'toplvl shortcut2' -> 'toplvl subclass shortcut' -> 'toplvl subclass subsubclass action'
+    exit_status = nil
+    out, _ = capture_io do
+      begin
+        NestedAliasApp.run_cli({}, ["shortcut2"])
+      rescue SystemExit => e
+        exit_status = e.status
+      end
+    end
+    assert_equal 77, exit_status
+    assert_match(/# INFO: my_action executed!/, out)
+  end
 end
