@@ -436,11 +436,11 @@ module CLIClassTool
             self.setOpts(action, opts_parser, opts)
 
             # Order remaining arguments
+            rest = opts_parser.order!(argv)
             if opts[:ignore_opts] != true
-                rest = opts_parser.order!(argv)
                 raise("Extra Unexpected extra arguments provided: " + rest.map(){|x|"'" + x + "'"}.join(", ")) if rest.length != 0
             else
-                opts[:extra_args] = argv
+                opts[:extra_args] = rest
             end
 
             # Validate options and execute action
