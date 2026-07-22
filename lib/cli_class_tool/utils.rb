@@ -156,6 +156,7 @@ module CLIClassTool
             if attr.to_s == "ACTION_LIST"
                 sub_actions = self.cli_sub_actions
                 res += sub_actions.keys.map(&:to_sym)
+                res << :list_actions unless res.include?(:list_actions)
             # If it's ACTION_HELP, merge subcommand helps
             elsif attr.to_s == "ACTION_HELP"
                 sub_helps = {}
@@ -188,7 +189,7 @@ module CLIClassTool
         def _runOnClass(action, sym, &block)
             return -1 unless self.const_defined?(:ACTION_CLASS)
             self::ACTION_CLASS.each(){|x|
-                next if x::ACTION_LIST.index(action) == nil
+                next if !x.const_defined?(:ACTION_LIST) || x::ACTION_LIST.index(action) == nil
 
                 # Resolve overridden/extended class (addon)
                 class_to_use = self.respond_to?(:getExtendedClass) ? self.getExtendedClass(x) : x
@@ -239,7 +240,7 @@ module CLIClassTool
         def execAction(opts, action, error_class = nil)
             caught_error_class = error_class || StandardError
 
-            self._runOnClass(action, nil) {|kClass|
+            ret_code = self._runOnClass(action, nil) {|kClass|
                 begin
                     # Use load factory method if defined, else fall back to .new
                     obj = kClass.respond_to?(:load) ? kClass.load() : kClass.new()
@@ -259,6 +260,15 @@ module CLIClassTool
                     end
                 end
             }
+
+            if ret_code == -1 && action == :list_actions
+                actions = self.getActionAttr("ACTION_LIST").map(){|x| self.actionToString(x)}
+                actions.reject! { |x| x == "list_actions" }
+                puts actions.join("\n")
+                return 0
+            end
+
+            return ret_code
         end
 
         # Set verbose logging

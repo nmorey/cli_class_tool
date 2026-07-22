@@ -222,7 +222,9 @@ module CLIClassTool
         # @param opts [Hash] Options hash
         # @return [Integer] 0
         def list_actions(opts)
-            puts parent_module.getActionAttr("ACTION_LIST").map(){|x| parent_module.actionToString(x)}.join("\n")
+            actions = parent_module.getActionAttr("ACTION_LIST").map(){|x| parent_module.actionToString(x)}
+            actions.reject! { |x| x == "list_actions" }
+            puts actions.join("\n")
             return 0
         end
     end

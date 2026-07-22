@@ -185,7 +185,7 @@ class CLIClassToolTest < Minitest::Test
 
   def test_get_action_attr
     list = MockApp.getActionAttr("ACTION_LIST")
-    assert_equal [:hello, :goodbye], list
+    assert_equal [:hello, :goodbye, :list_actions], list
 
     help = MockApp.getActionAttr("ACTION_HELP")
     assert_equal "Greet the user", help[:hello]
@@ -489,7 +489,7 @@ class CLIClassToolTest < Minitest::Test
     rescue => e
       flunk "Should not raise any error, but raised: #{e.class} - #{e.message}"
     end
-    assert_equal [], list
+    assert_equal [:list_actions], list
   end
 
   def test_action_class_without_action_help_or_list
@@ -505,6 +505,67 @@ class CLIClassToolTest < Minitest::Test
     RUBY
 
     assert_equal ({}), EmptyActionApp.getActionAttr("ACTION_HELP")
-    assert_equal [], EmptyActionApp.getActionAttr("ACTION_LIST")
+    # ACTION_LIST contains list_actions by default now
+    assert_equal [:list_actions], EmptyActionApp.getActionAttr("ACTION_LIST")
+  end
+
+  def test_list_actions_on_nested_subcommand
+    # Run list_actions on top-level app
+    exit_status = nil
+    out, _ = capture_io do
+      begin
+        NestedApp.run_cli({}, ["list_actions"])
+      rescue SystemExit => e
+        exit_status = e.status
+      end
+    end
+
+    assert_equal 0, exit_status
+    # Verify subcommands are listed, but list_actions is filtered out from printed output
+    assert_match(/sub_one/, out)
+    assert_match(/custom_sub/, out)
+    refute_match(/list_actions/, out)
+
+    # Run list_actions on Level 1 subcommand
+    exit_status_sub = nil
+    out_sub, _ = capture_io do
+      begin
+        NestedApp.run_cli({}, ["sub_one", "list_actions"])
+      rescue SystemExit => e
+        exit_status_sub = e.status
+      end
+    end
+
+    assert_equal 0, exit_status_sub
+    assert_match(/run_one/, out_sub)
+    refute_match(/list_actions/, out_sub)
+  end
+
+  def test_sub_cli_listed_in_action_class_list_actions
+    eval <<-RUBY
+      module SubCliInActionClassApp
+        class SubCliInActionClassAppError < StandardError; end
+        module SubCLI
+          class SubCLIError < StandardError; end
+          extend CLIClassTool::Utils
+        end
+        # Include SubCLI module directly in ACTION_CLASS
+        ACTION_CLASS = [ SubCLI ]
+        extend CLIClassTool::Utils
+      end
+    RUBY
+
+    exit_status = nil
+    out, _ = capture_io do
+      begin
+        SubCliInActionClassApp.run_cli({}, ["list_actions"])
+      rescue SystemExit => e
+        exit_status = e.status
+      end
+    end
+
+    assert_equal 0, exit_status
+    assert_equal "sub_cli", out.strip
+    refute_match(/list_actions/, out)
   end
 end
