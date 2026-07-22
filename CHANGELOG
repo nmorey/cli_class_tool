@@ -1,3 +1,7 @@
+* Add CLI_COMMAND_ALIASES support to define top-level command shortcuts/aliases to deeply-nested subcommand actions
+* Filter list_actions command output to exclude itself, preserving clean autocomplete query behavior
+* Require optparse explicitly inside utils.rb to prevent NameErrors in production environments
+* Safeguard attribute resolution and _runOnClass to gracefully default when ACTION_HELP/ACTION_LIST is missing
 * Add recursive nested subcommand and namespace auto-discovery support
 
 ------------------

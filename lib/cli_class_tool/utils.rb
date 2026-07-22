@@ -363,11 +363,39 @@ module CLIClassTool
                 end
             end
 
+            # Include command aliases if defined
+            if self.const_defined?(:CLI_COMMAND_ALIASES)
+                aliases = self::CLI_COMMAND_ALIASES
+                if aliases.is_a?(Hash) && aliases.length > 0
+                    action_parser.separator ""
+                    action_parser.separator "Command aliases:"
+                    aliases.each do |k, v|
+                        exp_str = v.is_a?(Array) ? v.join(" ") : v.to_s
+                        action_parser.separator "\t * #{k}  -> #{exp_str}"
+                    end
+                end
+            end
+
             rest = action_parser.order!(argv)
             if rest.length <= 0
                 STDERR.puts("Error: No action provided")
                 puts action_parser.to_s
                 exit 1
+            end
+
+            # Expand command aliases
+            if self.const_defined?(:CLI_COMMAND_ALIASES)
+                aliases = self::CLI_COMMAND_ALIASES
+                if aliases.is_a?(Hash)
+                    action_s = argv[0]
+                    action_sym = action_s ? action_s.to_sym : nil
+                    if aliases.key?(action_s) || (action_sym && aliases.key?(action_sym))
+                        expansion = aliases[action_s] || aliases[action_sym]
+                        expansion = expansion.split(' ') if expansion.is_a?(String)
+                        argv.shift()
+                        argv.unshift(*expansion)
+                    end
+                end
             end
 
             action_s = argv[0]

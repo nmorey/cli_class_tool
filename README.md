@@ -351,7 +351,26 @@ end
 - **Help Menus:** Nested subcommands and their descriptions (`CLI_DESCRIPTION` or `HELP` constants) are automatically collected and listed in the parent CLI's usage output under `Possible actions:`.
 - **Option Forwarding:** Global customization blocks and verbosity flags are recursively passed down to the active subcommand.
 
-### 3. Seamless Subcommand Exception Handling
+### 3. Command Aliases (Shortcuts)
+
+You can define command shortcuts/aliases at any CLI level by declaring a `CLI_COMMAND_ALIASES` Hash constant mapping shortcut names (symbols or strings) to subcommand/action pathways:
+
+```ruby
+module MyProject
+  extend CLIClassTool::Utils
+
+  # Map shortcuts to deeply-nested actions
+  CLI_COMMAND_ALIASES = {
+    "myalias"       => ["config", "set_val"],
+    "string_alias"  => "config set_val"
+  }
+end
+```
+
+Running `$ mytool myalias --foo bar` will automatically expand and route arguments exactly as if the user had typed `$ mytool config set_val --foo bar`.
+These shortcuts are also dynamically collected and formatted under a dedicated `Command aliases:` section when printing `--help`.
+
+### 4. Seamless Subcommand Exception Handling
 
 `CLIClassTool` provides dynamic subclass exception matching to solve a common design challenge: *rescuing any exception originating from nested sub-CLIs under a single, central parent rescue block.*
 

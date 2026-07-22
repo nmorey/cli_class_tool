@@ -135,6 +135,11 @@ module NestedApp
     extend CLIClassTool::Utils
   end
 
+  CLI_COMMAND_ALIASES = {
+    "myalias" => ["custom_sub", "deep_level_two", "run_deep"],
+    "string_alias" => "sub_one run_one"
+  }
+
   extend CLIClassTool::Utils
 end
 
@@ -567,5 +572,49 @@ class CLIClassToolTest < Minitest::Test
     assert_equal 0, exit_status
     assert_equal "sub_cli", out.strip
     refute_match(/list_actions/, out)
+  end
+
+  def test_command_alias_array_expansion
+    exit_status = nil
+    out, _ = capture_io do
+      begin
+        NestedApp.run_cli({}, ["myalias", "--deep-val", "expanded_val"])
+      rescue SystemExit => e
+        exit_status = e.status
+      end
+    end
+
+    assert_equal 42, exit_status
+    assert_match(/# INFO: DeepAction executed with deep_val=expanded_val/, out)
+  end
+
+  def test_command_alias_string_expansion
+    exit_status = nil
+    out, _ = capture_io do
+      begin
+        NestedApp.run_cli({}, ["string_alias", "--foo", "bar_val"])
+      rescue SystemExit => e
+        exit_status = e.status
+      end
+    end
+
+    assert_equal 0, exit_status
+    assert_match(/# INFO: SubOne executed with foo=bar_val/, out)
+  end
+
+  def test_command_alias_help_listing
+    exit_status = nil
+    out, _ = capture_io do
+      begin
+        NestedApp.run_cli({}, ["-h"])
+      rescue SystemExit => e
+        exit_status = e.status
+      end
+    end
+
+    assert_equal 0, exit_status
+    assert_match(/Command aliases:/, out)
+    assert_match(/\* myalias\s+-> custom_sub deep_level_two run_deep/, out)
+    assert_match(/\* string_alias\s+-> sub_one run_one/, out)
   end
 end
