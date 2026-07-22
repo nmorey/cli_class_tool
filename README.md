@@ -350,6 +350,7 @@ end
 - **Naming:** By default, subcommand trigger words are derived from the inner module/class name converted to `snake_case` (e.g., `ConfigCLI` becomes `config_cli`). Define `CLI_COMMAND_NAME = "custom_name"` on your submodule to override this behavior.
 - **Help Menus:** Nested subcommands and their descriptions (`CLI_DESCRIPTION` or `HELP` constants) are automatically collected and listed in the parent CLI's usage output under `Possible actions:`.
 - **Option Forwarding:** Global customization blocks and verbosity flags are recursively passed down to the active subcommand.
+- **Help Expansion:** By default, `--help` lists the trigger name and description of subcommands. You can declare `CLI_HELP_EXPAND = true` on a sub-CLI module to recursively list all of its individual actions directly in the parent's help menu. If `CLI_HELP_EXPAND` is a `String` (e.g., `"Config options:"`), that string will be printed as a dedicated help header separator inside the parent help menu.
 
 ### 3. Command Aliases (Shortcuts)
 

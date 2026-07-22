@@ -163,13 +163,24 @@ module CLIClassTool
             elsif attr.to_s == "ACTION_HELP"
                 sub_helps = {}
                 self.cli_sub_actions.each do |cmd_name, sub_cli|
-                    desc = ""
-                    if sub_cli.const_defined?(:CLI_DESCRIPTION)
-                        desc = sub_cli::CLI_DESCRIPTION
-                    elsif sub_cli.const_defined?(:HELP)
-                        desc = sub_cli::HELP
+                    expand_val = sub_cli.const_defined?(:CLI_HELP_EXPAND) ? sub_cli::CLI_HELP_EXPAND : nil
+                    if expand_val
+                        if expand_val.is_a?(String)
+                            sub_helps[expand_val] = ""
+                        end
+                        sub_helps_rec = sub_cli.getActionAttr("ACTION_HELP")
+                        sub_helps_rec.each do |k, desc|
+                            sub_helps["#{cmd_name} #{k}".to_sym] = desc
+                        end
+                    else
+                        desc = ""
+                        if sub_cli.const_defined?(:CLI_DESCRIPTION)
+                            desc = sub_cli::CLI_DESCRIPTION
+                        elsif sub_cli.const_defined?(:HELP)
+                            desc = sub_cli::HELP
+                        end
+                        sub_helps[cmd_name.to_sym] = desc
                     end
-                    sub_helps[cmd_name.to_sym] = desc
                 end
                 if self.const_defined?(:CLI_SUB_ACTIONS_HELP)
                     self::CLI_SUB_ACTIONS_HELP.each do |k, desc|

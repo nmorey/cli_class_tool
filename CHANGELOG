@@ -1,3 +1,5 @@
+* Support CLI_HELP_EXPAND on sub-CLIClass modules to recursively list sub-actions in parent help outputs, including support for boolean or custom string headers
+* Support recursive subcommand alias and shortcut resolution within deeply nested sub-CLIClasses
 * Add CLI_COMMAND_ALIASES support to define top-level command shortcuts/aliases to deeply-nested subcommand actions
 * Filter list_actions command output to exclude itself, preserving clean autocomplete query behavior
 * Require optparse explicitly inside utils.rb to prevent NameErrors in production environments

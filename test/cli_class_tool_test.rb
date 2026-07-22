@@ -706,4 +706,107 @@ class CLIClassToolTest < Minitest::Test
     assert_equal 77, exit_status
     assert_match(/# INFO: my_action executed!/, out)
   end
+
+  def test_cli_help_expand
+    eval <<-RUBY
+      module ExpandHelpApp
+        class ExpandHelpAppError < StandardError; end
+
+        class Common < CLIClassTool::Common
+          def parent_module; ExpandHelpApp; end
+          public :log
+        end
+
+        module SubClassOne
+          CLI_HELP_EXPAND = "SubClassOne actions header"
+
+          class SubClassOneError < StandardError; end
+          class Common < CLIClassTool::Common
+            def parent_module; SubClassOne; end
+            public :log
+          end
+
+          class ActionOne < Common
+            ACTION_LIST = [ :hello ]
+            ACTION_HELP = { :hello => "Greet nested user" }
+            def hello(opts)
+              log(:INFO, "hello")
+              return 0
+            end
+          end
+
+          ACTION_CLASS = [ ActionOne ]
+          extend CLIClassTool::Utils
+        end
+
+        module SubClassTwo
+          CLI_HELP_EXPAND = true
+
+          class SubClassTwoError < StandardError; end
+          class Common < CLIClassTool::Common
+            def parent_module; SubClassTwo; end
+            public :log
+          end
+
+          class ActionTwo < Common
+            ACTION_LIST = [ :goodbye ]
+            ACTION_HELP = { :goodbye => "Farewell nested user" }
+            def goodbye(opts)
+              log(:INFO, "goodbye")
+              return 0
+            end
+          end
+
+          ACTION_CLASS = [ ActionTwo ]
+          extend CLIClassTool::Utils
+        end
+
+        module SubClassThree
+          # CLI_HELP_EXPAND is false/not defined
+          class SubClassThreeError < StandardError; end
+          class Common < CLIClassTool::Common
+            def parent_module; SubClassThree; end
+            public :log
+          end
+
+          class ActionThree < Common
+            ACTION_LIST = [ :hey ]
+            ACTION_HELP = { :hey => "Say hey" }
+            def hey(opts)
+              log(:INFO, "hey")
+              return 0
+            end
+          end
+
+          ACTION_CLASS = [ ActionThree ]
+          extend CLIClassTool::Utils
+        end
+
+        extend CLIClassTool::Utils
+      end
+    RUBY
+
+    exit_status = nil
+    out, _ = capture_io do
+      begin
+        ExpandHelpApp.run_cli({}, ["-h"])
+      rescue SystemExit => e
+        exit_status = e.status
+      end
+    end
+
+    assert_equal 0, exit_status
+
+    # 1. Verify sub_class_one (which has CLI_HELP_EXPAND = String) lists both its header and its actions
+    assert_match(/\* SubClassOne actions header/, out)
+    assert_match(/\* sub_class_one hello\s+Greet nested user/, out)
+
+    # 2. Verify sub_class_two (which has CLI_HELP_EXPAND = true) lists its actions, but not its own module name (no header)
+    assert_match(/\* sub_class_two goodbye\s+Farewell nested user/, out)
+    refute_match(/\* sub_class_two\s*$/, out)
+
+    # 3. Verify sub_class_three (no CLI_HELP_EXPAND) is listed only by its module name, without its sub-actions
+    assert_match(/\* sub_class_three/, out)
+    refute_match(/sub_class_three hey/, out)
+  end
 end
