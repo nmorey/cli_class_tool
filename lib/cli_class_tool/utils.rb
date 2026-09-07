@@ -202,11 +202,10 @@ module CLIClassTool
         def _runOnClass(action, sym, &block)
             return -1 unless self.const_defined?(:ACTION_CLASS)
             self::ACTION_CLASS.each(){|x|
-                next if !x.const_defined?(:ACTION_LIST) || x::ACTION_LIST.index(action) == nil
-
                 # Resolve overridden/extended class (addon)
                 class_to_use = self.respond_to?(:getExtendedClass) ? self.getExtendedClass(x) : x
-
+                next if !class_to_use.const_defined?(:ACTION_LIST) ||
+                        class_to_use::ACTION_LIST.index(action) == nil
                 if sym != nil
                     has_base = x.singleton_methods().index(sym) != nil
                     has_addon = class_to_use != x && class_to_use.singleton_methods().index(sym) != nil
