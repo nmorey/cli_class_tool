@@ -161,6 +161,30 @@ class CLIClassToolTest < Minitest::Test
     assert_equal "\e[33mtest\e[0m", "test".brown
     assert_equal "\e[34mtest\e[0m", "test".blue
     assert_equal "\e[35mtest\e[0m", "test".magenta
+
+    # New standard colors
+    assert_equal "\e[30mtest\e[0m", "test".black
+    assert_equal "\e[33mtest\e[0m", "test".yellow
+    assert_equal "\e[36mtest\e[0m", "test".cyan
+    assert_equal "\e[37mtest\e[0m", "test".white
+
+    # Bold and bright/light colors
+    assert_equal "\e[1mtest\e[0m", "test".bold
+    assert_equal "\e[90mtest\e[0m", "test".gray
+    assert_equal "\e[90mtest\e[0m", "test".grey
+    assert_equal "\e[91mtest\e[0m", "test".light_red
+    assert_equal "\e[92mtest\e[0m", "test".light_green
+    assert_equal "\e[93mtest\e[0m", "test".light_yellow
+    assert_equal "\e[94mtest\e[0m", "test".light_blue
+    assert_equal "\e[95mtest\e[0m", "test".light_magenta
+    assert_equal "\e[96mtest\e[0m", "test".light_cyan
+    assert_equal "\e[97mtest\e[0m", "test".light_white
+
+    # Chaining/Merging behavior
+    assert_equal "\e[1;31mtest\e[0m", "test".red.bold
+    assert_equal "\e[1;31mtest\e[0m", "test".bold.red
+    assert_equal "\e[1;32mtest\e[0m", "test".red.bold.green
+    assert_equal "\e[1;34mtest\e[0m", "test".blue.bold.bold
   end
 
   def test_string_colorization_non_tty
@@ -172,6 +196,14 @@ class CLIClassToolTest < Minitest::Test
     assert_equal "test", "test".brown
     assert_equal "test", "test".blue
     assert_equal "test", "test".magenta
+    assert_equal "test", "test".black
+    assert_equal "test", "test".yellow
+    assert_equal "test", "test".cyan
+    assert_equal "test", "test".white
+    assert_equal "test", "test".bold
+    assert_equal "test", "test".gray
+    assert_equal "test", "test".red.bold
+    assert_equal "test", "test".bold.red
   end
 
   # Test CLIClassTool::Utils utilities

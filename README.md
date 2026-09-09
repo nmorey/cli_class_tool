@@ -421,4 +421,28 @@ rescue MyProjectError => e
 end
 ```
 
+---
+
+## String Colorization & Styling Extension
+
+`CLIClassTool` extends the core Ruby `String` class with standard ANSI escape sequence methods for terminal colorization and formatting.
+
+### 16-Color Palette Support
+
+The following color methods are available on any string:
+
+* **Standard Colors**: `.black`, `.red`, `.green`, `.brown` (alias `.yellow`), `.blue`, `.magenta`, `.cyan`, `.white`
+* **High-Intensity / Bright Colors**: `.gray` (alias `.grey`), `.light_red`, `.light_green`, `.light_yellow`, `.light_blue`, `.light_magenta`, `.light_cyan`, `.light_white`
+
+### Bold Mode and Method Chaining
+
+You can style text as bold using the `.bold` method. All methods support seamless chaining/merging, meaning ANSI escape sequences are parsed and merged into a single escape code (e.g., `\e[1;31m`) rather than nested redundantly.
+
+```ruby
+puts "Success!".green            # Green text
+puts "Warning!".brown.bold       # Bold brown (yellow) text
+puts "Fatal Error!".bold.red     # Bold red text
+puts "System Message".bold       # Bold text using default terminal color
 ```
+
+These methods automatically check if `$stdout` is a TTY and safely fall back to standard, unformatted strings if output is piped or redirected (non-TTY mode).
