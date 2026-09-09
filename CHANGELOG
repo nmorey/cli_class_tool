@@ -1,3 +1,7 @@
+------------------
+1.0.0  (2026-09-09)
+------------------
+
 * Switch confirm to optional hash-style arguments (:ignored_default, :allowed_reps, :usage), dropping legacy positional arguments
 
 ------------------
