@@ -77,14 +77,29 @@ module CLIClassTool
         #
         # @param opts [Hash] Options hash
         # @param msg [String] Confirmation message
-        # @param ignore_default [Boolean] Ignore default yes/no options
-        # @param allowed_reps [Array<String>] Allowed responses
+        # @param confirm_opts [Hash] Optional confirmation options
+        # @option confirm_opts [Boolean] :ignored_default (false) Ignore default yes/no options
+        # @option confirm_opts [Boolean] :ignore_default (false) Alias for :ignored_default
+        # @option confirm_opts [Array<String>] :allowed_reps (["y", "n"]) Allowed responses
+        # @option confirm_opts [String, Array<String>] :usage Custom usage string or list to display instead of allowed_reps.join("/")
         # @return [String] User response
-        def confirm(opts, msg, ignore_default=false, allowed_reps=[ "y", "n" ])
-            rep = 't'
+        def confirm(opts, msg, confirm_opts = {})
+            raise ArgumentError, "confirm options must be a Hash" unless confirm_opts.is_a?(Hash)
+
+            conf_opts = confirm_opts.transform_keys(&:to_sym)
+
+            ignored_default = conf_opts[:ignored_default]
+            ignored_default = conf_opts[:ignore_default] if ignored_default.nil?
+            ignored_default = false if ignored_default.nil?
+
+            allowed_reps = (conf_opts[:allowed_reps] || [ "y", "n" ]).map(&:to_s)
+            usage = conf_opts[:usage]
+            usage_str = usage ? (usage.is_a?(Array) ? usage.join("/") : usage.to_s) : allowed_reps.join("/")
+
+            rep = nil
             while allowed_reps.index(rep) == nil && rep != '' do
-                puts "Do you wish to #{msg} ? (#{allowed_reps.join("/")}): "
-                case (ignore_default == true ? nil : opts[:yn_default])
+                puts "Do you wish to #{msg} ? (#{usage_str}): "
+                case (ignored_default == true ? nil : opts&.[](:yn_default))
                 when :no
                     puts "Auto-replying no due to --no option"
                     rep = 'n'

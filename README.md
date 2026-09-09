@@ -179,6 +179,34 @@ By inheriting from `CLIClassTool::Common`, your action classes have access to a 
 
 ---
 
+## User Confirmation (`confirm`)
+
+`CLIClassTool::Common` provides an inherited `confirm(opts, msg, confirm_opts = {})` helper method to prompt the user for interactive confirmation or automatically reply when `-y`/`--yes` or `-n`/`--no` CLI flags are set.
+
+```ruby
+# Basic confirmation
+confirm(opts, "delete this branch")
+# => Do you wish to delete this branch ? (y/n):
+
+# Custom usage string printed in the prompt
+confirm(opts, "apply changes", usage: "y/N")
+# => Do you wish to apply changes ? (y/N):
+
+# Custom allowed responses and custom usage
+confirm(opts, "select conflict resolution", allowed_reps: ["y", "n", "a"], usage: "y/n/all")
+# => Do you wish to select conflict resolution ? (y/n/all):
+
+# Ignore CLI -y/--yes and -n/--no options to force interactive input
+confirm(opts, "format the disk", ignored_default: true)
+```
+
+### Supported Options:
+- `:usage` (`String` or `Array<String>`): Custom usage string to display instead of `#{allowed_reps.join("/")}`.
+- `:ignored_default` / `:ignore_default` (`Boolean`, default: `false`): If `true`, ignores `opts[:yn_default]` set by `--yes` or `--no`.
+- `:allowed_reps` (`Array<String>`, default: `["y", "n"]`): List of acceptable user responses.
+
+---
+
 ## Dynamic Class Overrides (Addons)
 
 `CLIClassTool` natively supports dynamic class overrides (addons). This allows projects to load repository-specific or custom subclasses that extend or override base action behaviors without modifying the core codebase.

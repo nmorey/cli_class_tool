@@ -810,3 +810,159 @@ class CLIClassToolTest < Minitest::Test
     refute_match(/sub_class_three hey/, out)
   end
 end
+
+class ConfirmTest < Minitest::Test
+  module TestApp
+    class Common < CLIClassTool::Common
+      def parent_module; TestApp; end
+      public :confirm
+    end
+  end
+
+  def setup
+    @tool = TestApp::Common.new
+  end
+
+  def with_stdin(input)
+    read_io, write_io = IO.pipe
+    write_io.write(input)
+    write_io.close
+    orig_stdin = STDIN.dup
+    STDIN.reopen(read_io)
+    begin
+      yield
+    ensure
+      STDIN.reopen(orig_stdin)
+      orig_stdin.close
+      read_io.close
+    end
+  end
+
+  def test_confirm_default_opts_yes_auto_reply
+    out, _ = capture_io do
+      res = @tool.confirm({ yn_default: :yes }, "proceed")
+      assert_equal "y", res
+    end
+    assert_match(/Do you wish to proceed \? \(y\/n\):/, out)
+    assert_match(/Auto-replying yes due to --yes option/, out)
+  end
+
+  def test_confirm_default_opts_no_auto_reply
+    out, _ = capture_io do
+      res = @tool.confirm({ yn_default: :no }, "proceed")
+      assert_equal "n", res
+    end
+    assert_match(/Do you wish to proceed \? \(y\/n\):/, out)
+    assert_match(/Auto-replying no due to --no option/, out)
+  end
+
+  def test_confirm_custom_usage_string
+    out, _ = capture_io do
+      res = @tool.confirm({ yn_default: :yes }, "install package", usage: "y/N")
+      assert_equal "y", res
+    end
+    assert_match(/Do you wish to install package \? \(y\/N\):/, out)
+    refute_match(/\(y\/n\):/, out)
+  end
+
+  def test_confirm_custom_usage_array
+    out, _ = capture_io do
+      res = @tool.confirm({ yn_default: :yes }, "continue", usage: ["yes", "NO"])
+      assert_equal "y", res
+    end
+    assert_match(/Do you wish to continue \? \(yes\/NO\):/, out)
+  end
+
+  def test_confirm_hash_options
+    out, _ = capture_io do
+      res = @tool.confirm({ yn_default: :yes }, "apply changes", { usage: "y/n/all", allowed_reps: ["y", "n", "a"] })
+      assert_equal "y", res
+    end
+    assert_match(/Do you wish to apply changes \? \(y\/n\/all\):/, out)
+  end
+
+  def test_confirm_string_keys_in_hash
+    out, _ = capture_io do
+      res = @tool.confirm({ yn_default: :yes }, "format disk", { "usage" => "y/N" })
+      assert_equal "y", res
+    end
+    assert_match(/Do you wish to format disk \? \(y\/N\):/, out)
+  end
+
+  def test_confirm_ignored_default_keyword
+    out, _ = capture_io do
+      res = with_stdin("n\n") do
+        @tool.confirm({ yn_default: :yes }, "delete db", ignored_default: true)
+      end
+      assert_equal "n", res
+    end
+    assert_match(/Do you wish to delete db \? \(y\/n\):/, out)
+    refute_match(/Auto-replying/, out)
+  end
+
+  def test_confirm_ignore_default_alias
+    out, _ = capture_io do
+      res = with_stdin("y\n") do
+        @tool.confirm({ yn_default: :no }, "reset state", ignore_default: true)
+      end
+      assert_equal "y", res
+    end
+    assert_match(/Do you wish to reset state \? \(y\/n\):/, out)
+    refute_match(/Auto-replying/, out)
+  end
+
+  def test_confirm_interactive_stdin_valid
+    out, _ = capture_io do
+      res = with_stdin("y\n") do
+        @tool.confirm({}, "restart service")
+      end
+      assert_equal "y", res
+    end
+    assert_match(/Do you wish to restart service \? \(y\/n\):/, out)
+  end
+
+  def test_confirm_interactive_stdin_retry_on_invalid
+    out, _ = capture_io do
+      res = with_stdin("invalid\ny\n") do
+        @tool.confirm({}, "restart service")
+      end
+      assert_equal "y", res
+    end
+    # Prompt is displayed twice
+    assert_equal 2, out.scan(/Do you wish to restart service \? \(y\/n\):/).length
+  end
+
+  def test_confirm_interactive_stdin_empty_input
+    out, _ = capture_io do
+      res = with_stdin("\n") do
+        @tool.confirm({}, "proceed with default")
+      end
+      assert_equal "", res
+    end
+    assert_match(/Do you wish to proceed with default \? \(y\/n\):/, out)
+  end
+
+  def test_confirm_allowed_reps_includes_t
+    out, _ = capture_io do
+      res = with_stdin("t\n") do
+        @tool.confirm({}, "select target", allowed_reps: ["t", "f"])
+      end
+      assert_equal "t", res
+    end
+    assert_match(/Do you wish to select target \? \(t\/f\):/, out)
+  end
+
+  def test_confirm_rejects_legacy_positional_boolean
+    err = assert_raises(ArgumentError) do
+      @tool.confirm({}, "test", true)
+    end
+    assert_match(/confirm options must be a Hash/, err.message)
+  end
+
+  def test_confirm_rejects_legacy_positional_four_args
+    err = assert_raises(ArgumentError) do
+      @tool.confirm({}, "test", false, ["y", "n"])
+    end
+    assert_match(/wrong number of arguments/, err.message)
+  end
+end
