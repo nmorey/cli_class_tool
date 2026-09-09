@@ -1,3 +1,7 @@
+------------------
+1.1.0  (2026-09-09)
+------------------
+
 * Extend String class with support for all 16 standard/high-intensity ANSI colors and a chainable `.bold` method that merges ANSI escape sequences
 
 ------------------
