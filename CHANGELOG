@@ -1,3 +1,7 @@
+------------------
+2.0.0  (2026-09-18)
+------------------
+
 * Refactor Common.run, runSystem, runGit, and runGitInteractive to accept optional named arguments (env:, catch_err:, silent_err:)
 * Replace check_err positional boolean with catch_err: keyword argument (default: false) across all run methods
 * Replace opts[:env] with env: keyword argument across all run methods
