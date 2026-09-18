@@ -136,12 +136,12 @@ module CLIClassTool
 
         private
         # Raise error if system command failed
-        # @param check_err [Boolean] Whether to check for errors
+        # @param catch_err [Boolean] Whether to catch (suppress raising) errors
         # @param sysret [Process::Status] System return status
         # @param ret [String, nil] Optional return message
-        # @raise [StandardError] If command failed
-        def abort_if_err(check_err, sysret, ret = nil)
-            if sysret.exitstatus != 0 && check_err == true
+        # @raise [StandardError] If command failed and catch_err is false
+        def abort_if_err(catch_err, sysret, ret = nil)
+            if sysret.exitstatus != 0 && !catch_err
                 unless parent_module.const_defined?(:RunError)
                     raise "CLIClassTool parent module #{parent_module} must extend CLIClassTool::Utils to define RunError"
                 end
@@ -177,58 +177,73 @@ module CLIClassTool
         # Run a shell command
         #
         # @param cmd [String] Command to run
-        # @param check_err [Boolean] Raise error on failure
+        # @param env [String, nil] Environment variable prefix (e.g., "FOO=bar")
+        # @param catch_err [Boolean] If true, do not raise error on failure
+        # @param silent_err [Boolean] If true, redirect stderr to /dev/null
         # @return [String] Command output
-        # @raise [StandardError] If command fails and check_err is true
-        def run(cmd, check_err = true)
+        # @raise [StandardError] If command fails and catch_err is false
+        def run(cmd, env: nil, catch_err: false, silent_err: false)
             cmd_debug('', cmd)
-            ret = `cd #{@path} && #{cmd}`.chomp()
-            abort_if_err(check_err, $?, ret)
+            env_prefix = env ? "#{env} " : ""
+            redirect = silent_err ? " 2>/dev/null" : ""
+            ret = `cd #{@path} && #{env_prefix}#{cmd}#{redirect}`.chomp()
+            abort_if_err(catch_err, $?, ret)
             return ret
         end
 
-        def self.run(path, cmd, check_err = true)
+        def self.run(path, cmd, env: nil, catch_err: false, silent_err: false)
             obj = Common.new(path, self)
-            return obj.run(cmd, check_err)
+            return obj.run(cmd, env: env, catch_err: catch_err, silent_err: silent_err)
         end
+
         # Run a shell command using system() (interactive)
         #
         # @param cmd [String] Command to run
-        # @param check_err [Boolean] Raise error on failure
+        # @param env [String, nil] Environment variable prefix (e.g., "FOO=bar")
+        # @param catch_err [Boolean] If true, do not raise error on failure
+        # @param silent_err [Boolean] If true, redirect stderr to /dev/null
         # @return [Boolean] Command success status
-        # @raise [StandardError] If command fails and check_err is true
-        def runSystem(cmd, check_err = true)
+        # @raise [StandardError] If command fails and catch_err is false
+        def runSystem(cmd, env: nil, catch_err: false, silent_err: false)
             cmd_debug('interactive', cmd)
-            ret = system("cd #{@path} && #{cmd}")
-            abort_if_err(check_err, $?)
+            env_prefix = env ? "#{env} " : ""
+            redirect = silent_err ? " 2>/dev/null" : ""
+            ret = system("cd #{@path} && #{env_prefix}#{cmd}#{redirect}")
+            abort_if_err(catch_err, $?)
             return ret
         end
 
         # Run a git command
         #
         # @param cmd [String] Git command arguments
-        # @param opts [Hash] Options (e.g., :env)
-        # @param check_err [Boolean] Raise error on failure
+        # @param env [String, nil] Environment variable prefix (e.g., "FOO=bar")
+        # @param catch_err [Boolean] If true, do not raise error on failure
+        # @param silent_err [Boolean] If true, redirect stderr to /dev/null
         # @return [String] Command output
-        # @raise [StandardError] If command fails and check_err is true
-        def runGit(cmd, opts={}, check_err = true)
+        # @raise [StandardError] If command fails and catch_err is false
+        def runGit(cmd, env: nil, catch_err: false, silent_err: false)
             cmd_debug('git', cmd)
-            ret = `cd #{@path} && #{opts[:env]} git #{cmd}`.chomp()
-            abort_if_err(check_err, $?, ret)
+            env_prefix = env ? "#{env} " : ""
+            redirect = silent_err ? " 2>/dev/null" : ""
+            ret = `cd #{@path} && #{env_prefix}git #{cmd}#{redirect}`.chomp()
+            abort_if_err(catch_err, $?, ret)
             return ret
         end
 
         # Run a git command interactively
         #
         # @param cmd [String] Git command arguments
-        # @param opts [Hash] Options (e.g., :env)
-        # @param check_err [Boolean] Raise error on failure
+        # @param env [String, nil] Environment variable prefix (e.g., "FOO=bar")
+        # @param catch_err [Boolean] If true, do not raise error on failure
+        # @param silent_err [Boolean] If true, redirect stderr to /dev/null
         # @return [Boolean] Command success status
-        # @raise [StandardError] If command fails and check_err is true
-        def runGitInteractive(cmd, opts={}, check_err = true)
+        # @raise [StandardError] If command fails and catch_err is false
+        def runGitInteractive(cmd, env: nil, catch_err: false, silent_err: false)
             cmd_debug('git interactive', cmd)
-            ret = system("cd #{@path} && #{opts[:env]} git #{cmd}")
-            abort_if_err(check_err, $?)
+            env_prefix = env ? "#{env} " : ""
+            redirect = silent_err ? " 2>/dev/null" : ""
+            ret = system("cd #{@path} && #{env_prefix}git #{cmd}#{redirect}")
+            abort_if_err(catch_err, $?)
             return ret
         end
 

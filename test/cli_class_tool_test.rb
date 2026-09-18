@@ -998,3 +998,129 @@ class ConfirmTest < Minitest::Test
     assert_match(/wrong number of arguments/, err.message)
   end
 end
+
+class CommonRunTest < Minitest::Test
+  module TestApp
+    class TestAppError < StandardError; end
+    class Common < CLIClassTool::Common
+      def parent_module; TestApp; end
+      public :run, :runSystem, :runGit, :runGitInteractive
+    end
+    extend CLIClassTool::Utils
+  end
+
+  def setup
+    @tool = TestApp::Common.new
+  end
+
+  def test_run_success
+    res = @tool.run("echo 'hello world'")
+    assert_equal "hello world", res
+  end
+
+  def test_run_with_env
+    res = @tool.run("sh -c 'echo $FOO_TEST'", env: "FOO_TEST='bar_val'")
+    assert_equal "bar_val", res
+  end
+
+  def test_run_raises_by_default_on_error
+    err = assert_raises(TestApp::RunError) do
+      @tool.run("false")
+    end
+    assert_equal 1, err.err_code
+  end
+
+  def test_run_catches_error_when_catch_err_is_true
+    res = @tool.run("false", catch_err: true)
+    assert_equal "", res
+  end
+
+  def test_run_silent_err_redirects_stderr
+    # Without silent_err, stderr goes to output stream
+    _, err_normal = capture_subprocess_io do
+      @tool.run("sh -c 'echo \"an error\" 1>&2'", catch_err: true)
+    end
+    assert_match(/an error/, err_normal)
+
+    # With silent_err, stderr is redirected to /dev/null
+    _, err_silent = capture_subprocess_io do
+      @tool.run("sh -c 'echo \"an error\" 1>&2'", silent_err: true, catch_err: true)
+    end
+    assert_empty err_silent
+  end
+
+  def test_common_class_run
+    res = CLIClassTool::Common.run(".", "echo 'class run'")
+    assert_equal "class run", res
+
+    res_env = CLIClassTool::Common.run(".", "sh -c 'echo $MY_VAR'", env: "MY_VAR=123")
+    assert_equal "123", res_env
+
+    # Common.run error handling with default parent_module Object
+    res_caught = CLIClassTool::Common.run(".", "false", catch_err: true)
+    assert_equal "", res_caught
+  end
+
+  def test_run_system_success
+    res = @tool.runSystem("true")
+    assert_equal true, res
+  end
+
+  def test_run_system_raises_by_default_on_error
+    err = assert_raises(TestApp::RunError) do
+      @tool.runSystem("false")
+    end
+    assert_equal 1, err.err_code
+  end
+
+  def test_run_system_catches_error_when_catch_err_is_true
+    res = @tool.runSystem("false", catch_err: true)
+    assert_equal false, res
+  end
+
+  def test_run_system_with_env
+    res = @tool.runSystem("sh -c 'test \"$MY_VAR\" = \"abc\"'", env: "MY_VAR=abc")
+    assert_equal true, res
+  end
+
+  def test_run_system_silent_err
+    _, err = capture_subprocess_io do
+      @tool.runSystem("sh -c 'echo \"sys err\" 1>&2'", silent_err: true)
+    end
+    assert_empty err
+  end
+
+  def test_run_git_success
+    res = @tool.runGit("status --short")
+    assert_kind_of String, res
+  end
+
+  def test_run_git_with_env
+    res = @tool.runGit("config user.name", env: "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=user.name GIT_CONFIG_VALUE_0=TestRunner")
+    assert_equal "TestRunner", res
+  end
+
+  def test_run_git_error_and_catch_err
+    err = assert_raises(TestApp::RunError) do
+      @tool.runGit("invalidcommand_xyz")
+    end
+    refute_equal 0, err.err_code
+
+    res = @tool.runGit("invalidcommand_xyz", catch_err: true, silent_err: true)
+    assert_kind_of String, res
+  end
+
+  def test_run_git_interactive
+    res = @tool.runGitInteractive("status --short")
+    assert_equal true, res
+
+    err = assert_raises(TestApp::RunError) do
+      @tool.runGitInteractive("invalidcommand_xyz", silent_err: true)
+    end
+    refute_equal 0, err.err_code
+
+    res_fail = @tool.runGitInteractive("invalidcommand_xyz", catch_err: true, silent_err: true)
+    assert_equal false, res_fail
+  end
+end
+

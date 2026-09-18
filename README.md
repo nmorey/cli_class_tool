@@ -207,6 +207,48 @@ confirm(opts, "format the disk", ignored_default: true)
 
 ---
 
+## Command Execution (`run`, `runSystem`, `runGit`, `runGitInteractive`)
+
+`CLIClassTool::Common` provides shell and git execution methods that run within the context of the instance's target `@path`.
+
+### Available Methods
+
+- `run(cmd, env: nil, catch_err: false, silent_err: false)`: Executes a command in a subshell, returning the stripped stdout (`String`).
+- `CLIClassTool::Common.run(path, cmd, env: nil, catch_err: false, silent_err: false)`: Class method convenience helper that instantiates a `Common` object for `path` and runs `cmd`.
+- `runSystem(cmd, env: nil, catch_err: false, silent_err: false)`: Executes a command interactively using `system()`, returning `true` on success and `false` on failure.
+- `runGit(cmd, env: nil, catch_err: false, silent_err: false)`: Runs `git #{cmd}` in a subshell, returning the stripped stdout (`String`).
+- `runGitInteractive(cmd, env: nil, catch_err: false, silent_err: false)`: Runs `git #{cmd}` interactively using `system()`, returning `true` on success and `false` on failure.
+
+### Optional Named Arguments
+
+- `env` (`String`, default: `nil`): Optional environment variable prefix prepended to the command (e.g. `env: "FOO=bar"` or `env: "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=user.name GIT_CONFIG_VALUE_0=TestRunner"`).
+- `catch_err` (`Boolean`, default: `false`): Controls error handling on non-zero exit codes:
+  - `catch_err: false` (default): Command failures abort and raise a project-specific `RunError`.
+  - `catch_err: true`: Suppresses raising `RunError`, returning the command output (or `false` for `system` methods).
+- `silent_err` (`Boolean`, default: `false`): When `true`, redirects stderr output to `/dev/null` (`2>/dev/null`).
+
+### Examples
+
+```ruby
+# Basic execution (raises RunError if command exits non-zero)
+branch = run("git rev-parse --abbrev-ref HEAD")
+
+# Running with environment variables
+run("make", env: "CC=clang CFLAGS='-O2'")
+
+# Suppressing errors on expected failures
+output = run("grep -r 'pattern' .", catch_err: true)
+
+# Suppressing error output (stderr redirected to /dev/null)
+runGit("rev-parse --verify non_existing_ref", catch_err: true, silent_err: true)
+
+# Interactive execution via system()
+runSystem("make menuconfig")
+runGitInteractive("rebase -i origin/main")
+```
+
+---
+
 ## Dynamic Class Overrides (Addons)
 
 `CLIClassTool` natively supports dynamic class overrides (addons). This allows projects to load repository-specific or custom subclasses that extend or override base action behaviors without modifying the core codebase.
