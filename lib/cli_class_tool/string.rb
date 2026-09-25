@@ -139,4 +139,28 @@ class String
     def light_white
         colorize(97)
     end
+
+    # Wrap the string in an OSC 8 terminal hyperlink if stdout is a TTY.
+    #
+    # @param url [String, #to_s, nil] Target URL for the hyperlink.
+    # @return [String] The formatted terminal hyperlink, or original string if not a TTY or URL is nil/empty.
+    def hyperlink(url)
+        @@is_a_tty = $stdout.isatty() if @@is_a_tty == nil
+        if @@is_a_tty && url && !url.to_s.empty?
+            "\e]8;;#{url}\e\\#{self}\e]8;;\e\\"
+        else
+            self
+        end
+    end
+
+    # Compute the visible length of the string
+    # Without any of ANSI/ASCII control characters nor embedded hyperlinks
+    #
+    # @return [Integer] Visible string length
+    def visible_length()
+        return self.gsub(/\e\]8;.*?(?:\e\\|\a)/, "") # Removes opening and closing hyperlink tags
+                   .gsub(/\e\[[0-9;?]*[a-zA-Z]/, "") # Removes ANSI escape codes (colors, cursor control)
+                   .gsub(/[[:cntrl:]]/, "")          # Removes any residual control characters
+                   .length
+    end
 end

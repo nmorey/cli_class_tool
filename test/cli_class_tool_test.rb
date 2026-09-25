@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'test_helper'
+require 'uri'
 
 # Define a mock parent module to test the CLI runner and utilities end-to-end
 module MockApp
@@ -150,6 +151,9 @@ class CLIClassToolTest < Minitest::Test
     MockApp::TestAction.opts_checked = false
     String.class_variable_set(:@@is_a_tty, false)
   end
+  def teardown
+    String.class_variable_set(:@@is_a_tty, false)
+  end
 
   # Test String colorization extensions
   def test_string_colorization_tty
@@ -185,6 +189,8 @@ class CLIClassToolTest < Minitest::Test
     assert_equal "\e[1;31mtest\e[0m", "test".bold.red
     assert_equal "\e[1;32mtest\e[0m", "test".red.bold.green
     assert_equal "\e[1;34mtest\e[0m", "test".blue.bold.bold
+    assert_equal "\e[32mtest\e[0m", "test".red.green
+    assert_equal "\e[34mtest\e[0m", "test".light_red.blue
   end
 
   def test_string_colorization_non_tty
@@ -202,8 +208,69 @@ class CLIClassToolTest < Minitest::Test
     assert_equal "test", "test".white
     assert_equal "test", "test".bold
     assert_equal "test", "test".gray
+    assert_equal "test", "test".grey
+    assert_equal "test", "test".light_red
+    assert_equal "test", "test".light_green
+    assert_equal "test", "test".light_yellow
+    assert_equal "test", "test".light_blue
+    assert_equal "test", "test".light_magenta
+    assert_equal "test", "test".light_cyan
+    assert_equal "test", "test".light_white
     assert_equal "test", "test".red.bold
     assert_equal "test", "test".bold.red
+    assert_equal "test", "test".red.green
+  end
+
+  # Test String hyperlink extension
+  def test_string_hyperlink_tty
+    String.class_variable_set(:@@is_a_tty, true)
+
+    assert_equal "\e]8;;https://example.com\e\\click here\e]8;;\e\\", "click here".hyperlink("https://example.com")
+    assert_equal "\e]8;;https://example.com\e\\click here\e]8;;\e\\", "click here".hyperlink(URI("https://example.com"))
+    assert_equal "click here", "click here".hyperlink(nil)
+    assert_equal "click here", "click here".hyperlink("")
+
+    # Hyperlinks combined with colors
+    assert_equal "\e]8;;https://example.com\e\\\e[31mclick here\e[0m\e]8;;\e\\", "click here".red.hyperlink("https://example.com")
+    assert_equal "\e[31m\e]8;;https://example.com\e\\click here\e]8;;\e\\\e[0m", "click here".hyperlink("https://example.com").red
+  end
+
+  def test_string_hyperlink_non_tty
+    String.class_variable_set(:@@is_a_tty, false)
+
+    assert_equal "click here", "click here".hyperlink("https://example.com")
+    assert_equal "click here", "click here".hyperlink(URI("https://example.com"))
+    assert_equal "click here", "click here".hyperlink(nil)
+    assert_equal "click here", "click here".hyperlink("")
+  end
+
+  # Test String visible_length calculation
+  def test_string_visible_length
+    # Plain strings
+    assert_equal 0, "".visible_length
+    assert_equal 5, "hello".visible_length
+    assert_equal 4, "café".visible_length
+
+    # Colorized and styled strings
+    String.class_variable_set(:@@is_a_tty, true)
+    assert_equal 5, "hello".red.visible_length
+    assert_equal 5, "hello".bold.visible_length
+    assert_equal 5, "hello".bold.light_yellow.visible_length
+
+    # Hyperlinks
+    assert_equal 10, "click here".hyperlink("https://example.com").visible_length
+    assert_equal 10, "click here".red.hyperlink("https://example.com").visible_length
+    assert_equal 10, "click here".hyperlink("https://example.com").bold.green.visible_length
+
+    # Hyperlinks with parameters or BEL terminators
+    assert_equal 4, "\e]8;id=item1;https://example.com\e\\item\e]8;;\e\\".visible_length
+    assert_equal 4, "\e]8;;https://example.com\aitem\e]8;;\a".visible_length
+
+    # ANSI CSI control codes and residual control characters
+    assert_equal 8, "\e[2Kprogress\e[1A".visible_length
+    assert_equal 10, "line1\nline2".visible_length
+    assert_equal 6, "\r[done]".visible_length
+    assert_equal 4, "bell\a".visible_length
   end
 
   # Test CLIClassTool::Utils utilities

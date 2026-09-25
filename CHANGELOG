@@ -1,3 +1,6 @@
+* Add `String#hyperlink` method for OSC 8 terminal hyperlinks
+* Add `String#visible_length` method to compute visible string length stripped of ANSI escapes, control characters, and hyperlinks
+
 ------------------
 2.0.0  (2026-09-18)
 ------------------

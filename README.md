@@ -488,3 +488,22 @@ puts "System Message".bold       # Bold text using default terminal color
 ```
 
 These methods automatically check if `$stdout` is a TTY and safely fall back to standard, unformatted strings if output is piped or redirected (non-TTY mode).
+
+### Terminal Hyperlinks (`hyperlink`)
+
+You can create clickable OSC 8 terminal hyperlinks using the `.hyperlink(url)` method. When `$stdout` is a TTY and a target URL is provided, it formats the string with OSC 8 escape sequences; otherwise, it returns the original string:
+
+```ruby
+puts "Visit Website".hyperlink("https://example.com")
+puts "Source Code".blue.hyperlink("https://github.com")
+```
+
+### Visible String Length (`visible_length`)
+
+To compute the display length of a string without ANSI color escape codes, embedded hyperlinks, or residual control characters, use `.visible_length`:
+
+```ruby
+str = "Click here".bold.red.hyperlink("https://example.com")
+str.length         # Raw string length including escape sequences
+str.visible_length # 10 (visible characters count)
+```
